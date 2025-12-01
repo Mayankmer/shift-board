@@ -6,6 +6,25 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { LogOut, Plus, AlertCircle } from 'lucide-react';
 
+// Helper to safely combine date (YYYY-MM-DD) and time (HH:MM:SS)
+const combineDateAndTime = (dateInput: string, timeInput: string) => {
+  try {
+    const datePart = String(dateInput).split('T')[0];
+    
+    const timePart = timeInput.length === 5 ? `${timeInput}:00` : timeInput;
+
+    const dateObj = new Date(`${datePart}T${timePart}`);
+
+    if (isNaN(dateObj.getTime())) {
+      console.error('Invalid Date generated:', `${datePart}T${timePart}`);
+      return new Date(); 
+    }
+    return dateObj;
+  } catch (error) {
+    return new Date();
+  }
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -60,8 +79,8 @@ export default function Dashboard() {
     
     try {
       await axios.post('/api/shifts', formData);
-      setFormData({ userId: '', date: '', startTime: '', endTime: '' }); // Reset form
-      loadData(user); // Refresh table
+      setFormData({ userId: '', date: '', startTime: '', endTime: '' }); 
+      loadData(user); 
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to add shift');
     }
@@ -88,7 +107,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Admin Only: Add Shift Form */}
+        {/* Add Shift Form */}
         {user.role === 'admin' && (
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -169,19 +188,22 @@ export default function Dashboard() {
             </thead>
             <tbody className="divide-y">
               {shifts.map((shift: any) => {
-                const start = new Date(`${shift.date}T${shift.start_time}`);
-                const end = new Date(`${shift.date}T${shift.end_time}`);
+                
+                const start = combineDateAndTime(shift.date, shift.start_time);
+                const end = combineDateAndTime(shift.date, shift.end_time);
                 const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
                 
                 return (
                   <tr key={shift.id} className="hover:bg-gray-50 transition">
-                    <td className="p-4 text-gray-800">{format(new Date(shift.date), 'MMM dd, yyyy')}</td>
+                    <td className="p-4 text-gray-800">{format(start, 'MMM dd, yyyy')}</td>
                     <td className="p-4">
                       <div className="font-bold text-gray-900">{shift.employee_name}</div>
                       <div className="text-xs text-gray-500">{shift.employee_code}</div>
                     </td>
                     <td className="p-4 text-gray-600">
-                      {format(start, 'h:mm a')} - {format(end, 'h:mm a')}
+                      {/* Only format if valid, otherwise fallback */}
+                      {!isNaN(start.getTime()) ? format(start, 'h:mm a') : 'Invalid'} - 
+                      {!isNaN(end.getTime()) ? format(end, 'h:mm a') : 'Invalid'}
                     </td>
                     <td className="p-4">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
